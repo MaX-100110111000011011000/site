@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>портрет 💖</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 100%;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #ff6b9d;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 10px #ff1493;
+        }
+        
+        canvas {
+            border: 2px solid #ff6b9d;
+            border-radius: 10px;
+            background: black;
+            max-width: 90vw;
+            max-height: 60vh;
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+        }
+        
+        #message {
+            color: #ff1493;
+            font-weight: bold;
+            font-size: 1.5rem;
+            margin: 2rem 0;
+            text-shadow: 0 0 10px rgba(255, 20, 147, 0.7);
+            animation: glow 2s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #ff1493; }
+            to { text-shadow: 0 0 20px #ff69b4, 0 0 30px #ff1493; }
+        }
+        
+        .loading {
+            color: #ffb6c1;
+            font-size: 1.1rem;
+            margin: 1rem 0;
+        }
+        
+        .error {
+            color: #ff6b6b;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 1rem 0;
+            border: 1px solid #ff6b6b;
+        }
+        
+        @media (max-width: 480px) {
+            h1 { font-size: 1.7rem; }
+            #message { font-size: 1.3rem; }
+            canvas { max-width: 95vw; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💖Портрет 💖</h1>
+        
+        <div class="loading" id="loading">Загружаю твой особенный портрет...</div>
+        <canvas id="canvas" width="400" height="400"></canvas>
+        <div id="message"></div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const messageDiv = document.getElementById('message');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+
+        // ФИКСИРОВАННОЕ имя файла - МЕНЯЙ ТОЛЬКО ЭТО
+        const FIXED_IMAGE_NAME = "IMG_8546.jpg";
+
+        function loadAndDrawFixedImage() {
+            loadingDiv.textContent = "Загружаю твое фото...";
+            
+            const img = new Image();
+            
+            img.onload = function() {
+                loadingDiv.textContent = "Рисую портрет...";
+                drawPortraitFromImage(img);
+            };
+            
+            img.onerror = function() {
+                errorDiv.innerHTML = `❌ Файл "${FIXED_IMAGE_NAME}" не найден!<br>
+                                    Положи фото с этим именем в ту же папку что и HTML файл.`;
+                errorDiv.style.display = 'block';
+                loadingDiv.textContent = "";
+            };
+            
+            // Пытаемся загрузить фиксированное фото
+            img.src = FIXED_IMAGE_NAME;
+        }
+
+        function drawPortraitFromImage(img) {
+            errorDiv.style.display = 'none';
+            
+            // Очищаем canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Создаем временный canvas для обработки
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Размер для обработки
+            const size = 200;
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            
+            // Рисуем изображение
+            tempCtx.drawImage(img, 0, 0, size, size);
+            
+            // Получаем пиксели
+            const imageData = tempCtx.getImageData(0, 0, size, size);
+            const pixels = imageData.data;
+            
+            // Настройки отрисовки
+            const pixelSize = 2;
+            const startX = (canvas.width - size * pixelSize) / 2;
+            const startY = (canvas.height - size * pixelSize) / 2;
+            
+            // Анимированная отрисовка
+            let y = 0;
+            let animationId;
+            
+            function drawFrame() {
+                const rowsPerFrame = 2;
+                
+                for (let frameY = 0; frameY < rowsPerFrame; frameY++) {
+                    if (y >= size) {
+                        cancelAnimationFrame(animationId);
+                        finishDrawing();
+                        return;
+                    }
+                    
+                    for (let x = 0; x < size; x++) {
+                        const index = (y * size + x) * 4;
+                        const r = pixels[index];
+                        const g = pixels[index + 1];
+                        const b = pixels[index + 2];
+                        
+                        // Конвертируем в grayscale
+                        const brightness = 255 - (0.299 * r + 0.587 * g + 0.114 * b);
+                        
+                        if (brightness > 30) {
+                            const shade = Math.min(255, brightness);
+                            ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+                            ctx.fillRect(
+                                startX + x * pixelSize,
+                                startY + y * pixelSize,
+                                pixelSize,
+                                pixelSize
+                            );
+                        }
+                    }
+                    y++;
+                }
+                
+                animationId = requestAnimationFrame(drawFrame);
+            }
+            
+            function finishDrawing() {
+                loadingDiv.style.display = 'none';
+                messageDiv.innerHTML = 'Ты самая прекрасная! 💖';
+            }
+            
+            drawFrame();
+        }
+
+        // Автоматически запускаем при загрузке страницы
+        window.addEventListener('load', loadAndDrawFixedImage);
+    </script>
+</body>
+</html>
